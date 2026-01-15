@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cycle Tech Meter Pro</title>
+    <title>Cycle Tech Meter Ultimate</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
         :root {
-            /* JSで制御する変数 */
+            /* 変数 */
             --clock-color: #ffffff;
             --meter-color: #00ffcc;
             
@@ -70,27 +70,27 @@
             backdrop-filter: blur(4px);
         }
 
-        /* --- メーターエリア (Flexboxで縦並び配置) --- */
+        /* --- メーターエリア --- */
         #meter-container {
             flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* 画面中央寄せ */
+            justify-content: center;
             align-items: center;
             position: relative;
             z-index: 10;
             background: var(--bg-color);
             transition: opacity 0.3s;
-            padding-bottom: 60px; /* 下部ボタン分の余白 */
+            padding-bottom: 70px; /* 下部ボタン分の余白 */
             box-sizing: border-box;
         }
 
-        /* 時計 (重なり防止のためmarginで距離を確保) */
+        /* 時計 */
         #clock {
             font-size: 3.5rem;
             font-weight: 300;
             color: var(--clock-color);
-            margin-bottom: 20px; /* メーターとの隙間 */
+            margin-bottom: 10px;
             font-variant-numeric: tabular-nums;
             z-index: 5;
             text-shadow: 0 0 10px rgba(0,0,0,0.5);
@@ -99,43 +99,37 @@
         /* --- アナログ・デジタル融合メーター --- */
         #gauge-wrapper {
             position: relative;
-            width: 340px;  /* 少し大きく */
+            width: 340px;
             height: 340px;
             display: flex;
             justify-content: center;
             align-items: center;
-            margin-bottom: 20px; /* 下の統計データとの隙間 */
+            margin-bottom: 15px;
         }
 
-        /* SVG円弧 */
         svg.gauge-bg {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            overflow: visible; /* 描画切れ防止 */
+            top: 0; left: 0; width: 100%; height: 100%;
+            overflow: visible;
         }
         
-        /* ゲージの背景線 */
         .gauge-track {
             fill: none;
-            stroke: #222; /* 暗めのグレー */
+            stroke: #222;
             stroke-width: 18;
-            stroke-linecap: round; /* 先端を丸く */
+            stroke-linecap: round;
         }
 
-        /* 針 (CSS回転) */
         #gauge-needle {
             position: absolute;
-            width: 6px; /* 少し太く */
+            width: 6px;
             height: 50%; 
             background: transparent;
             bottom: 50%;
             left: 50%;
             transform-origin: bottom center;
             transform: rotate(-135deg);
-            transition: transform 0.1s cubic-bezier(0.1, 0, 0.3, 1); /* 動きをより自然に */
+            transition: transform 0.1s cubic-bezier(0.1, 0, 0.3, 1);
             z-index: 2;
             pointer-events: none;
         }
@@ -143,8 +137,8 @@
         #gauge-needle::after {
             content: '';
             position: absolute;
-            top: 15px; /* 外周から少し内側 */
-            left: -2px; /* widthの半分調整 */
+            top: 15px;
+            left: -2px;
             width: 10px;
             height: 40px;
             background: var(--meter-color);
@@ -152,7 +146,6 @@
             box-shadow: 0 0 15px var(--meter-color);
         }
 
-        /* 中央のデジタル表示 */
         #digital-inner {
             position: absolute;
             z-index: 3;
@@ -164,7 +157,6 @@
             width: 60%;
             height: 60%;
             border-radius: 50%;
-            /* 背景を少し暗くして針とのコントラストを出す */
             background: radial-gradient(circle, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 80%);
         }
 
@@ -184,7 +176,6 @@
             font-weight: bold;
         }
 
-        /* 目盛り数字 */
         .gauge-tick-label {
             position: absolute;
             font-size: 1rem;
@@ -194,23 +185,25 @@
             pointer-events: none;
         }
 
-        /* --- 統計情報パネル --- */
+        /* --- 統計情報パネル (Gridレイアウト) --- */
         #stats-panel {
-            display: flex;
-            justify-content: space-around;
-            width: 90%;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr; /* 3列 */
+            gap: 10px 5px; /* 上下左右の隙間 */
+            width: 95%;
             max-width: 500px;
             background: rgba(40, 40, 40, 0.4);
             border-radius: 20px;
-            padding: 15px 0;
+            padding: 15px 10px;
             backdrop-filter: blur(5px);
             border: 1px solid rgba(255,255,255,0.1);
+            box-sizing: border-box;
         }
 
         .stat-box { text-align: center; }
-        .stat-label { font-size: 0.75rem; color: #aaa; display: block; margin-bottom: 3px; letter-spacing: 1px;}
-        .stat-value { font-size: 1.5rem; font-weight: bold; color: #fff; }
-        .stat-unit { font-size: 0.8rem; color: #aaa; margin-left: 2px; }
+        .stat-label { font-size: 0.7rem; color: #aaa; display: block; margin-bottom: 2px; letter-spacing: 1px;}
+        .stat-value { font-size: 1.3rem; font-weight: bold; color: #fff; font-variant-numeric: tabular-nums;}
+        .stat-unit { font-size: 0.7rem; color: #aaa; margin-left: 2px; }
 
         /* --- 地図 --- */
         #map-view {
@@ -222,7 +215,7 @@
         body.map-active #map-view { opacity: 1; pointer-events: auto; z-index: 20; }
         body.map-active #meter-container { display: none; }
 
-        /* --- 切り替えボタン --- */
+        /* --- 下部ボタン --- */
         #bottom-controls {
             position: absolute;
             bottom: 30px;
@@ -274,7 +267,6 @@
         .setting-row { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; color: #ddd; font-size: 0.95rem; }
         
-        /* カラーピッカーのスタイル調整 */
         .color-picker-wrapper { display: flex; justify-content: space-between; align-items: center; background: #333; padding: 10px; border-radius: 8px;}
         input[type="color"] { border: none; width: 40px; height: 30px; background: none; cursor: pointer; }
         
@@ -310,31 +302,23 @@
     <!-- メーター画面 (Flexbox構成) -->
     <div id="meter-container">
         
-        <!-- 時計 (メーターの上に配置) -->
+        <!-- 時計 -->
         <div id="clock">--:--</div>
 
         <!-- 融合メーター -->
         <div id="gauge-wrapper">
-            <!-- 背景円弧 SVG (中心基準で描画) -->
             <svg class="gauge-bg" viewBox="0 0 200 200">
-                <!-- 半径85の円弧を描画 -->
                 <path class="gauge-track" d="M 40 160 A 85 85 0 1 1 160 160" fill="none" />
             </svg>
-            
-            <!-- 目盛り数字コンテナ -->
             <div id="gauge-ticks"></div>
-            
-            <!-- 針 -->
             <div id="gauge-needle"></div>
-            
-            <!-- 中央デジタル表示 -->
             <div id="digital-inner">
                 <span id="speed-val">0.0</span>
                 <span id="speed-unit">km/h</span>
             </div>
         </div>
 
-        <!-- データパネル -->
+        <!-- データパネル (6項目) -->
         <div id="stats-panel">
             <div class="stat-box">
                 <span class="stat-label">DIST</span>
@@ -342,9 +326,25 @@
                 <span class="stat-unit">km</span>
             </div>
             <div class="stat-box">
+                <span class="stat-label">TIME</span>
+                <span class="stat-value" id="time-val">00:00</span>
+                <span class="stat-unit"></span>
+            </div>
+            <div class="stat-box">
                 <span class="stat-label">MAX</span>
                 <span class="stat-value" id="max-val">0.0</span>
                 <span class="stat-unit">km/h</span>
+            </div>
+            <!-- 2段目 -->
+            <div class="stat-box">
+                <span class="stat-label">ALT</span>
+                <span class="stat-value" id="alt-val">--</span>
+                <span class="stat-unit">m</span>
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">KCAL</span>
+                <span class="stat-value" id="kcal-val">0</span>
+                <span class="stat-unit">kcal</span>
             </div>
             <div class="stat-box">
                 <span class="stat-label">GPS</span>
@@ -366,7 +366,12 @@
 <!-- 設定モーダル -->
 <div id="settings-modal">
     <div class="settings-content">
-        <h2>設定</h2>
+        <h2>Settings</h2>
+
+        <div class="setting-row">
+            <label>体重 (kg) <small style="color:#888;">※カロリー計算用</small></label>
+            <input type="number" id="input-weight" value="60" min="30" max="150">
+        </div>
 
         <div class="setting-row">
             <label>時計の色</label>
@@ -400,7 +405,7 @@
 
         <div class="setting-row">
             <button class="action-btn btn-reset" id="btn-reset-max">最高速度リセット</button>
-            <button class="action-btn btn-reset" id="btn-reset-dist">走行距離リセット</button>
+            <button class="action-btn btn-reset" id="btn-reset-dist">走行距離・時間リセット</button>
             <button class="action-btn btn-danger" id="btn-reset-all">全データリセット</button>
         </div>
 
@@ -418,6 +423,11 @@
         dist: document.getElementById('dist-val'),
         max: document.getElementById('max-val'),
         acc: document.getElementById('acc-val'),
+        // New elements
+        time: document.getElementById('time-val'),
+        alt: document.getElementById('alt-val'),
+        kcal: document.getElementById('kcal-val'),
+
         ticks: document.getElementById('gauge-ticks'),
         meterContainer: document.getElementById('meter-container'),
         modal: document.getElementById('settings-modal'),
@@ -426,16 +436,24 @@
         inputMeterColor: document.getElementById('input-meter-color'),
         inputStyle: document.getElementById('input-style'),
         inputScale: document.getElementById('input-scale'),
+        inputWeight: document.getElementById('input-weight'),
     };
 
     let state = {
         currentSpeed: 0,
         maxSpeed: 0,
         distance: 0,
+        
+        // 新しいデータ
+        movingTime: 0, // 秒
+        calories: 0,
+        currentAlt: null,
+        userWeight: 60,
+
         lastLat: null,
         lastLng: null,
         mapMode: false,
-        // 個別カラー設定
+        
         clockColor: '#ffffff',
         meterColor: '#00ffcc',
         meterMax: 40,
@@ -443,10 +461,11 @@
     };
 
     let map = null, marker = null;
+    let timerInterval = null;
 
     // --- データ読み込み ---
     function loadData() {
-        const saved = localStorage.getItem('cycle-meter-data-v2'); // キーを新しくして競合回避
+        const saved = localStorage.getItem('cycle-meter-ultimate');
         if (saved) {
             const data = JSON.parse(saved);
             state = { ...state, ...data };
@@ -456,9 +475,13 @@
     }
 
     function saveData() {
-        localStorage.setItem('cycle-meter-data-v2', JSON.stringify({
+        localStorage.setItem('cycle-meter-ultimate', JSON.stringify({
             maxSpeed: state.maxSpeed,
             distance: state.distance,
+            movingTime: state.movingTime,
+            calories: state.calories,
+            userWeight: state.userWeight,
+            
             clockColor: state.clockColor,
             meterColor: state.meterColor,
             meterMax: state.meterMax,
@@ -467,23 +490,21 @@
     }
 
     function applySettings() {
-        // CSS変数に適用
         document.documentElement.style.setProperty('--clock-color', state.clockColor);
         document.documentElement.style.setProperty('--meter-color', state.meterColor);
         
-        // Input値に反映
         els.inputClockColor.value = state.clockColor;
         els.inputMeterColor.value = state.meterColor;
         els.inputScale.value = state.meterMax;
         els.inputStyle.value = state.displayStyle;
+        els.inputWeight.value = state.userWeight;
 
-        // スタイルクラス切替
         els.meterContainer.classList.remove('hide-analog', 'hide-digital');
         if (state.displayStyle === 'analog') els.meterContainer.classList.add('hide-digital');
         if (state.displayStyle === 'digital') els.meterContainer.classList.add('hide-analog');
 
         drawTicks();
-        updateMeter(state.currentSpeed); // 針位置更新
+        updateMeter(state.currentSpeed);
     }
 
     // --- メーター描画 ---
@@ -491,11 +512,6 @@
         els.ticks.innerHTML = '';
         const max = parseInt(state.meterMax);
         const step = max <= 30 ? 5 : (max <= 60 ? 10 : 20);
-        
-        // SVGパス(M 40 160 A 85 85 ...) に合わせた角度計算
-        // 円の中心(100,100)、半径85
-        // 始点(40,160)はおよそ225度(左下)、終点(160,160)はおよそ315度(右下)
-        // CSS回転角度としては -135deg から +135deg の範囲
         const startAngle = -135;
         const totalAngle = 270;
 
@@ -507,9 +523,7 @@
             const angle = startAngle + (i / max) * totalAngle;
             const rad = (angle - 90) * (Math.PI / 180);
             
-            // 数字の配置半径 (円弧より少し内側)
             const radius = 110; 
-            // Wrapperの中心(170,170)からのオフセット
             const x = 170 + radius * Math.cos(rad);
             const y = 170 + radius * Math.sin(rad);
 
@@ -525,7 +539,6 @@
         let percent = speed / max;
         if (percent > 1) percent = 1;
         
-        // 針の回転範囲 -135deg ~ 135deg
         const deg = -135 + (percent * 270);
         els.needle.style.transform = `rotate(${deg}deg)`;
     }
@@ -536,6 +549,36 @@
         const h = String(now.getHours()).padStart(2, '0');
         const m = String(now.getMinutes()).padStart(2, '0');
         els.clock.textContent = `${h}:${m}`;
+    }
+
+    // カロリー・時間計算用タイマー (1秒ごとに実行)
+    function tripTimer() {
+        // オートポーズ: 2.0km/h以上で動いているとみなす
+        if (state.currentSpeed >= 2.0) {
+            state.movingTime++;
+
+            // カロリー計算 (METs法簡易版)
+            // ゆっくり(4METs), 普通(6METs), 速い(8METs), 爆速(10METs)
+            let mets = 4.0;
+            if (state.currentSpeed >= 15) mets = 6.0;
+            if (state.currentSpeed >= 20) mets = 8.0;
+            if (state.currentSpeed >= 30) mets = 10.0;
+
+            // Kcal = METs * kg * hour
+            // 1秒あたりの消費 = (METs * kg) / 3600
+            const kcalPerSec = (mets * state.userWeight) / 3600;
+            state.calories += kcalPerSec;
+        }
+    }
+
+    function formatTime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        if (h > 0) {
+            return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+        return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
     }
 
     function calcDistance(lat1, lon1, lat2, lon2) {
@@ -553,19 +596,20 @@
         if (!navigator.geolocation) return;
         
         navigator.geolocation.watchPosition((pos) => {
-            const { latitude, longitude, speed, accuracy } = pos.coords;
+            const { latitude, longitude, speed, accuracy, altitude } = pos.coords;
             
-            // 速度計算
+            // 速度
             let kmh = (speed || 0) * 3.6;
             if (kmh < 1.0) kmh = 0;
-            
             state.currentSpeed = kmh;
             if (kmh > state.maxSpeed) state.maxSpeed = kmh;
 
-            // 距離計算 (精度フィルタ & 移動フィルタ)
+            // 高度
+            state.currentAlt = altitude;
+
+            // 距離 (精度フィルタ & 移動フィルタ)
             if (state.lastLat !== null && accuracy < 50 && kmh > 2.0) {
                 const d = calcDistance(state.lastLat, state.lastLng, latitude, longitude);
-                // 飛び値除外 (0.002km = 2m以上, 0.1km = 100m未満/sec)
                 if (d > 0.002 && d < 0.1) {
                     state.distance += d;
                 }
@@ -581,7 +625,7 @@
             if (map && marker) {
                 const ll = [latitude, longitude];
                 marker.setLatLng(ll);
-                if(state.mapMode) map.setView(ll); // マップモード中のみ追従
+                if(state.mapMode) map.setView(ll);
             }
 
         }, (e) => console.warn(e), { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 });
@@ -591,16 +635,27 @@
         updateMeter(state.currentSpeed);
         els.dist.textContent = state.distance.toFixed(2);
         els.max.textContent = state.maxSpeed.toFixed(1);
+        
+        // 新項目更新
+        els.time.textContent = formatTime(state.movingTime);
+        els.kcal.textContent = Math.floor(state.calories);
+        
+        if (state.currentAlt !== null) {
+            els.alt.textContent = Math.round(state.currentAlt);
+        } else {
+            els.alt.textContent = '--';
+        }
+
         if(acc) els.acc.textContent = Math.round(acc);
     }
 
     // --- イベントリスナー ---
-    // 色設定 (個別)
+    // カラー設定
     els.inputClockColor.addEventListener('input', (e) => {
         state.clockColor = e.target.value;
         document.documentElement.style.setProperty('--clock-color', state.clockColor);
     });
-    els.inputClockColor.addEventListener('change', saveData); // 確定時保存
+    els.inputClockColor.addEventListener('change', saveData);
 
     els.inputMeterColor.addEventListener('input', (e) => {
         state.meterColor = e.target.value;
@@ -608,7 +663,7 @@
     });
     els.inputMeterColor.addEventListener('change', saveData);
 
-    // その他設定
+    // 数値設定
     els.inputStyle.addEventListener('change', (e) => {
         state.displayStyle = e.target.value;
         applySettings(); saveData();
@@ -617,21 +672,31 @@
         state.meterMax = e.target.value;
         applySettings(); saveData();
     });
+    els.inputWeight.addEventListener('change', (e) => {
+        state.userWeight = parseInt(e.target.value) || 60;
+        saveData();
+    });
 
     // リセットボタン
     document.getElementById('btn-reset-max').addEventListener('click', () => {
         if(confirm('最高速度を0にしますか？')) { state.maxSpeed = 0; saveData(); updateUI(); }
     });
     document.getElementById('btn-reset-dist').addEventListener('click', () => {
-        if(confirm('走行距離を0にしますか？')) { state.distance = 0; saveData(); updateUI(); }
+        if(confirm('走行距離・時間・カロリーをリセットしますか？')) { 
+            state.distance = 0; 
+            state.movingTime = 0; 
+            state.calories = 0;
+            saveData(); updateUI(); 
+        }
     });
     document.getElementById('btn-reset-all').addEventListener('click', () => {
-        if(confirm('全てのデータを消去しますか？')) { 
-            state.maxSpeed = 0; state.distance = 0; saveData(); updateUI(); 
+        if(confirm('全てリセットしますか？設定も初期化されます。')) { 
+             localStorage.removeItem('cycle-meter-ultimate');
+             location.reload();
         }
     });
 
-    // 全画面・設定開閉
+    // モーダル・全画面
     document.getElementById('btn-settings').addEventListener('click', () => els.modal.style.display = 'flex');
     document.getElementById('btn-close-settings').addEventListener('click', () => els.modal.style.display = 'none');
     document.getElementById('btn-fullscreen').addEventListener('click', () => {
@@ -661,6 +726,7 @@
 
     // 初期化
     setInterval(updateClock, 1000);
+    setInterval(tripTimer, 1000); // 1秒ごとにタイマー監視
     updateClock();
     loadData();
     startTracking();
