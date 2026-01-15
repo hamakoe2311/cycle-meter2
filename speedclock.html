@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cycle Dashboard</title>
+    
+    <!-- Leaflet CSS (地図用) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        :root {
+            --primary-color: #00ffcc; /* ネオンシアン */
+            --bg-color: #121212;
+            --text-color: #ffffff;
+            --btn-bg: #333;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden; /* スクロール禁止 */
+            color: var(--text-color);
+        }
+
+        /* メインコンテナ */
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* メーター画面（デフォルト表示） */
+        #meter-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.3s;
+        }
+
+        /* 時計 */
+        #clock {
+            font-size: 3rem;
+            font-weight: 300;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+        }
+
+        /* 速度表示 */
+        .speed-wrapper {
+            text-align: center;
+        }
+        
+        #speed {
+            font-size: 9rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            line-height: 1;
+            font-variant-numeric: tabular-nums; /* 数字の幅を固定 */
+        }
+
+        #unit {
+            font-size: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.7;
+            display: block;
+            margin-top: 10px;
+        }
+
+        /* 地図画面（初期は非表示） */
+        #map-view {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            display: none; /* JSで切り替え */
+        }
+
+        /* 切り替えボタン */
+        #toggle-btn {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--primary-color);
+            color: #000;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 255, 204, 0.4);
+            cursor: pointer;
+            z-index: 1000;
+            transition: transform 0.1s;
+        }
+
+        #toggle-btn:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        /* ユーティリティ */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <!-- メーター画面 -->
+        <div id="meter-view">
+            <div id="clock">--:--</div>
+            <div class="speed-wrapper">
+                <span id="speed">0.0</span>
+                <span id="unit">km/h</span>
+            </div>
+        </div>
+
+        <!-- 地図画面 -->
+        <div id="map-view"></div>
+
+        <!-- 切り替えボタン -->
+        <button id="toggle-btn">MAP</button>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // --- 設定 ---
+        const speedEl = document.getElementById('speed');
+        const clockEl = document.getElementById('clock');
+        const meterView = document.getElementById('meter-view');
+        const mapView = document.getElementById('map-view');
+        const toggleBtn = document.getElementById('toggle-btn');
+        
+        let map = null;
+        let marker = null;
+        let isMapMode = false;
+        let watchId = null;
+
+        // --- 時計機能 ---
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            clockEl.textContent = `${hours}:${minutes}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- GPS & 速度機能 ---
+        function startTracking() {
+            if (!navigator.geolocation) {
+                alert("このブラウザはGeolocationに対応していません。");
+                return;
+            }
+
+            const options = {
+                enableHighAccuracy: true, // 高精度モード（重要：速度取得のため）
+                timeout: 5000,
+                maximumAge: 0
+            };
+
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude, speed } = position.coords;
+
+                    // 1. 速度更新 (m/s -> km/h 変換)
+                    // speedがnullの場合は0にする
+                    let speedKmh = (speed || 0) * 3.6;
+                    
+                    // 少しノイズ除去（低速すぎる場合は0表示）
+                    if (speedKmh < 1.0) speedKmh = 0;
+                    
+                    speedEl.textContent = speedKmh.toFixed(1);
+
+                    // 2. 地図更新
+                    updateMapPosition(latitude, longitude);
+                },
+                (error) => {
+                    console.error("GPS Error:", error);
+                    // エラー時はここを適宜処理（例：speedEl.textContent = "ERR"）
+                },
+                options
+            );
+        }
+
+        // --- 地図機能 (Leaflet) ---
+        function initMap() {
+            // 東京駅周辺をデフォルトに（GPS取得後に書き換わります）
+            map = L.map('map-view').setView([35.6812, 139.7671], 15);
+
+            // OpenStreetMapのタイル読み込み
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // 現在地マーカー
+            marker = L.marker([35.6812, 139.7671]).addTo(map);
+        }
+
+        function updateMapPosition(lat, lng) {
+            if (!map) return;
+
+            const newLatLng = [lat, lng];
+            marker.setLatLng(newLatLng);
+            
+            // 地図モードのときだけ中心を追従させる（操作性を良くするため）
+            if (isMapMode) {
+                map.setView(newLatLng);
+            }
+        }
+
+        // --- 画面切り替えロジック ---
+        toggleBtn.addEventListener('click', () => {
+            isMapMode = !isMapMode;
+
+            if (isMapMode) {
+                // 地図モードへ
+                meterView.style.display = 'none';
+                mapView.style.display = 'block';
+                toggleBtn.textContent = 'SPEED';
+                
+                // 地図の初期化（初回のみ）
+                if (!map) initMap();
+                
+                // 地図のサイズ再計算（display:noneから復帰時に必須）
+                setTimeout(() => {
+                    map.invalidateSize();
+                    // 現在地にジャンプ
+                    if (marker) {
+                        map.setView(marker.getLatLng());
+                    }
+                }, 100);
+
+            } else {
+                // スピードメーターモードへ
+                mapView.style.display = 'none';
+                meterView.style.display = 'flex';
+                toggleBtn.textContent = 'MAP';
+            }
+        });
+
+        // --- アプリ開始 ---
+        startTracking();
+
+        // 画面ロック防止用（簡易的なKeepAwake: 動画再生ハックなどが一般的だが、今回は基本機能のみ）
+        // 実際の運用ではスマホの設定で「自動ロックなし」にすることをお勧めします。
+
+    </script>
+</body>
+</html>
