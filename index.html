@@ -3,17 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cycle Dashboard</title>
+    <title>Cycle Dashboard Pro</title>
     
-    <!-- Leaflet CSS (地図用) -->
+    <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
         :root {
-            --primary-color: #00ffcc; /* ネオンシアン */
-            --bg-color: #121212;
-            --text-color: #ffffff;
-            --btn-bg: #333;
+            /* デフォルト色（JSで上書きされます） */
+            --clock-color: #ffffff;
+            --speed-color: #00ffcc;
+            
+            --bg-color: #000000;
+            --ui-bg: rgba(30, 30, 30, 0.9);
+            --btn-active: #555;
         }
 
         body, html {
@@ -23,98 +26,214 @@
             height: 100%;
             background-color: var(--bg-color);
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            overflow: hidden; /* スクロール禁止 */
-            color: var(--text-color);
+            overflow: hidden;
+            color: #fff;
+            /* タップ時のハイライトを無効化 */
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* メインコンテナ */
         #app {
             display: flex;
             flex-direction: column;
             height: 100vh;
+            height: 100dvh; /* モバイルのアドレスバー対策 */
             position: relative;
         }
 
-        /* メーター画面（デフォルト表示） */
+        /* --- ヘッダーコントロール (設定・全画面) --- */
+        #top-controls {
+            position: absolute;
+            top: 15px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 2000; /* 最前面 */
+            pointer-events: none; /* 下の要素を触れるようにし、ボタンだけ有効化 */
+        }
+
+        .icon-btn {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #444;
+            color: #fff;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            pointer-events: auto; /* ボタンのみクリック可能に */
+            backdrop-filter: blur(4px);
+        }
+
+        /* --- メインコンテンツ --- */
         #meter-view {
             flex: 1;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            transition: opacity 0.3s;
+            width: 100%;
+            z-index: 10;
+            background-color: var(--bg-color); /* 地図の上に被せる */
         }
 
-        /* 時計 */
         #clock {
-            font-size: 3rem;
+            font-size: 3.5rem;
             font-weight: 300;
             margin-bottom: 2rem;
-            opacity: 0.8;
+            color: var(--clock-color);
+            font-variant-numeric: tabular-nums;
         }
 
-        /* 速度表示 */
         .speed-wrapper {
             text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
         
         #speed {
-            font-size: 9rem;
+            font-size: 8.5rem;
             font-weight: bold;
-            color: var(--primary-color);
-            line-height: 1;
-            font-variant-numeric: tabular-nums; /* 数字の幅を固定 */
+            line-height: 0.9;
+            color: var(--speed-color);
+            font-variant-numeric: tabular-nums;
         }
 
         #unit {
-            font-size: 2rem;
+            font-size: 1.5rem;
             text-transform: uppercase;
             letter-spacing: 2px;
-            opacity: 0.7;
-            display: block;
+            color: #888;
             margin-top: 10px;
         }
 
-        /* 地図画面（初期は非表示） */
+        /* --- 地図画面 --- */
         #map-view {
-            flex: 1;
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            display: none; /* JSで切り替え */
+            z-index: 1; /* メーターの下 */
+            display: block; /* 常に存在させる（DOM生成のため） */
+            opacity: 0;     /* 初期は非表示 */
+            pointer-events: none; /* 裏にあるときは操作不可 */
+            transition: opacity 0.3s;
         }
 
-        /* 切り替えボタン */
-        #toggle-btn {
+        /* 地図モード時のスタイル適用クラス */
+        body.map-active #map-view {
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 15; /* メーターの上に出す */
+        }
+        
+        body.map-active #meter-view {
+            display: none;
+        }
+
+        /* --- 切り替えボタン --- */
+        #toggle-container {
             position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: var(--primary-color);
-            color: #000;
-            border: none;
+            bottom: 40px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: 2000; /* マップより確実に上 */
+            pointer-events: none; /* 周囲はクリック透過 */
+        }
+
+        #toggle-btn {
+            background-color: rgba(30, 30, 30, 0.9);
+            color: #fff;
+            border: 2px solid #555;
             border-radius: 50px;
-            padding: 15px 40px;
+            padding: 12px 30px;
             font-size: 1.2rem;
             font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0, 255, 204, 0.4);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             cursor: pointer;
-            z-index: 1000;
-            transition: transform 0.1s;
+            pointer-events: auto; /* ボタン本体はクリック可能 */
+            width: 120px;
+            text-align: center;
+            backdrop-filter: blur(5px);
         }
 
-        #toggle-btn:active {
-            transform: translateX(-50%) scale(0.95);
+        /* --- 設定モーダル --- */
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 3000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
         }
 
-        /* ユーティリティ */
-        .hidden {
-            display: none !important;
+        .settings-content {
+            background: #222;
+            padding: 20px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 350px;
         }
+
+        h2 { margin-top: 0; font-size: 1.2rem; border-bottom: 1px solid #444; padding-bottom: 10px;}
+        
+        .color-section { margin-bottom: 20px; }
+        .color-label { display: block; margin-bottom: 10px; font-size: 0.9rem; color: #ccc; }
+        
+        .color-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .color-swatch {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: 2px solid #444;
+            cursor: pointer;
+        }
+        .color-swatch.selected { border-color: #fff; transform: scale(1.1); }
+
+        #close-settings {
+            width: 100%;
+            padding: 12px;
+            background: #444;
+            border: none;
+            color: #fff;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
     </style>
 </head>
 <body>
 
     <div id="app">
+        <!-- 上部ボタン群 -->
+        <div id="top-controls">
+            <!-- 設定ボタン (歯車) -->
+            <button id="settings-btn" class="icon-btn">⚙️</button>
+            <!-- 全画面ボタン -->
+            <button id="fullscreen-btn" class="icon-btn">⛶</button>
+        </div>
+
         <!-- メーター画面 -->
         <div id="meter-view">
             <div id="clock">--:--</div>
@@ -127,25 +246,135 @@
         <!-- 地図画面 -->
         <div id="map-view"></div>
 
-        <!-- 切り替えボタン -->
-        <button id="toggle-btn">MAP</button>
+        <!-- モード切り替えボタン -->
+        <div id="toggle-container">
+            <button id="toggle-btn">MAP</button>
+        </div>
+    </div>
+
+    <!-- 設定モーダル -->
+    <div id="settings-modal">
+        <div class="settings-content">
+            <h2>Settings</h2>
+            
+            <div class="color-section">
+                <span class="color-label">時計の色</span>
+                <div class="color-palette" id="clock-palette"></div>
+            </div>
+
+            <div class="color-section">
+                <span class="color-label">速度計の色</span>
+                <div class="color-palette" id="speed-palette"></div>
+            </div>
+
+            <button id="close-settings">閉じる</button>
+        </div>
     </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // --- 設定 ---
+        // --- 変数定義 ---
         const speedEl = document.getElementById('speed');
         const clockEl = document.getElementById('clock');
-        const meterView = document.getElementById('meter-view');
-        const mapView = document.getElementById('map-view');
         const toggleBtn = document.getElementById('toggle-btn');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettingsBtn = document.getElementById('close-settings');
         
         let map = null;
         let marker = null;
         let isMapMode = false;
-        let watchId = null;
+        
+        // カラーパレット定義
+        const colors = [
+            { code: '#00ffcc', name: 'Neon Cyan' },
+            { code: '#ff0000', name: 'Red' },
+            { code: '#ff9900', name: 'Orange' },
+            { code: '#ffff00', name: 'Yellow' },
+            { code: '#ffffff', name: 'White' },
+            { code: '#888888', name: 'Dim White' },
+            { code: '#ff00ff', name: 'Magenta' },
+            { code: '#00ff00', name: 'Lime' }
+        ];
+
+        // 設定の初期値
+        let userSettings = {
+            clockColor: '#ffffff',
+            speedColor: '#00ffcc'
+        };
+
+        // --- 設定の保存・読み込み (LocalStorage) ---
+        function loadSettings() {
+            const saved = localStorage.getItem('cycle-dashboard-settings');
+            if (saved) {
+                userSettings = JSON.parse(saved);
+            }
+            applyColors();
+        }
+
+        function saveSettings() {
+            localStorage.setItem('cycle-dashboard-settings', JSON.stringify(userSettings));
+            applyColors();
+        }
+
+        function applyColors() {
+            document.documentElement.style.setProperty('--clock-color', userSettings.clockColor);
+            document.documentElement.style.setProperty('--speed-color', userSettings.speedColor);
+            renderPalette(); // 選択状態の更新のため
+        }
+
+        // --- UI生成: カラーパレット ---
+        function createPalette(containerId, settingKey) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            colors.forEach(color => {
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = color.code;
+                
+                // 現在選択されている色なら枠線を強調
+                if (userSettings[settingKey] === color.code) {
+                    swatch.classList.add('selected');
+                }
+
+                swatch.addEventListener('click', () => {
+                    userSettings[settingKey] = color.code;
+                    saveSettings();
+                });
+                
+                container.appendChild(swatch);
+            });
+        }
+
+        function renderPalette() {
+            createPalette('clock-palette', 'clockColor');
+            createPalette('speed-palette', 'speedColor');
+        }
+
+        // --- 全画面機能 ---
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    alert(`全画面表示エラー: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        // --- 設定画面の開閉 ---
+        settingsBtn.addEventListener('click', () => {
+            renderPalette();
+            settingsModal.style.display = 'flex';
+        });
+
+        closeSettingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'none';
+        });
 
         // --- 時計機能 ---
         function updateClock() {
@@ -157,104 +386,77 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // --- GPS & 速度機能 ---
-        function startTracking() {
-            if (!navigator.geolocation) {
-                alert("このブラウザはGeolocationに対応していません。");
-                return;
-            }
-
-            const options = {
-                enableHighAccuracy: true, // 高精度モード（重要：速度取得のため）
-                timeout: 5000,
-                maximumAge: 0
-            };
-
-            watchId = navigator.geolocation.watchPosition(
-                (position) => {
-                    const { latitude, longitude, speed } = position.coords;
-
-                    // 1. 速度更新 (m/s -> km/h 変換)
-                    // speedがnullの場合は0にする
-                    let speedKmh = (speed || 0) * 3.6;
-                    
-                    // 少しノイズ除去（低速すぎる場合は0表示）
-                    if (speedKmh < 1.0) speedKmh = 0;
-                    
-                    speedEl.textContent = speedKmh.toFixed(1);
-
-                    // 2. 地図更新
-                    updateMapPosition(latitude, longitude);
-                },
-                (error) => {
-                    console.error("GPS Error:", error);
-                    // エラー時はここを適宜処理（例：speedEl.textContent = "ERR"）
-                },
-                options
-            );
-        }
-
-        // --- 地図機能 (Leaflet) ---
+        // --- GPS & 地図機能 ---
         function initMap() {
-            // 東京駅周辺をデフォルトに（GPS取得後に書き換わります）
-            map = L.map('map-view').setView([35.6812, 139.7671], 15);
+            if (map) return;
+            
+            // 日本全体を表示（初期値）
+            map = L.map('map-view', {
+                zoomControl: false // スマホで見やすくするためズームボタンを消す
+            }).setView([35.6812, 139.7671], 15);
 
-            // OpenStreetMapのタイル読み込み
+            // OpenStreetMap (Google Maps風の見た目はCSSでは限界があるが、標準的なマップを使用)
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution: '&copy; OpenStreetMap',
+                maxZoom: 19
             }).addTo(map);
 
-            // 現在地マーカー
             marker = L.marker([35.6812, 139.7671]).addTo(map);
         }
 
-        function updateMapPosition(lat, lng) {
-            if (!map) return;
+        function startTracking() {
+            if (!navigator.geolocation) return;
 
-            const newLatLng = [lat, lng];
-            marker.setLatLng(newLatLng);
-            
-            // 地図モードのときだけ中心を追従させる（操作性を良くするため）
-            if (isMapMode) {
-                map.setView(newLatLng);
-            }
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude, speed } = position.coords;
+
+                    // 1. 速度更新
+                    let speedKmh = (speed || 0) * 3.6;
+                    if (speedKmh < 1.0) speedKmh = 0;
+                    speedEl.textContent = speedKmh.toFixed(1);
+
+                    // 2. 地図位置更新
+                    if (map && marker) {
+                        const newLatLng = [latitude, longitude];
+                        marker.setLatLng(newLatLng);
+                        
+                        // 位置が変わったら必ずマップ中心を追従させる
+                        map.setView(newLatLng);
+                    } else if (!map) {
+                        // 初回マップ作成待ち（initMapが呼ばれる前なら位置だけ保持しておきたいが、initMapで現在地取得する手もある）
+                    }
+                },
+                (err) => console.warn(err),
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            );
         }
 
         // --- 画面切り替えロジック ---
         toggleBtn.addEventListener('click', () => {
             isMapMode = !isMapMode;
-
+            
             if (isMapMode) {
-                // 地図モードへ
-                meterView.style.display = 'none';
-                mapView.style.display = 'block';
+                document.body.classList.add('map-active');
                 toggleBtn.textContent = 'SPEED';
                 
-                // 地図の初期化（初回のみ）
                 if (!map) initMap();
                 
-                // 地図のサイズ再計算（display:noneから復帰時に必須）
+                // 地図の表示崩れを防ぐおまじない
                 setTimeout(() => {
                     map.invalidateSize();
-                    // 現在地にジャンプ
-                    if (marker) {
-                        map.setView(marker.getLatLng());
-                    }
+                    // 現在地へジャンプ(watchPositionが回っていれば自動で行くが念のため)
+                    if(marker) map.setView(marker.getLatLng());
                 }, 100);
-
             } else {
-                // スピードメーターモードへ
-                mapView.style.display = 'none';
-                meterView.style.display = 'flex';
+                document.body.classList.remove('map-active');
                 toggleBtn.textContent = 'MAP';
             }
         });
 
-        // --- アプリ開始 ---
+        // --- 初期化実行 ---
+        loadSettings();
         startTracking();
-
-        // 画面ロック防止用（簡易的なKeepAwake: 動画再生ハックなどが一般的だが、今回は基本機能のみ）
-        // 実際の運用ではスマホの設定で「自動ロックなし」にすることをお勧めします。
 
     </script>
 </body>
